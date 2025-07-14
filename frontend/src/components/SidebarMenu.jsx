@@ -40,16 +40,15 @@ const SidebarMenu = ({ user }) => {
   const toggleUsers = () => setOpenUsers(!openUsers);
   const { pathname } = useLocation();
 
+  const isAdmin = fullUser?.atr_id_rol === 1;
+
   const menuItems = [
-    { text: 'Inicio', to: '/dashboard', icon: <DashboardIcon /> },
     { text: 'Citas', to: '/citas', icon: <CalendarTodayIcon /> },
-    { text: 'Médicos', to: '/medicos', icon: <MedicalServicesIcon /> },
     { text: 'Pacientes', to: '/pacientes', icon: <PeopleIcon /> },
+    { text: 'Médicos', to: '/medicos', icon: <MedicalServicesIcon /> },
     { text: 'Tratamientos', to: '/tratamientos', icon: <HealingIcon /> },
     { text: 'Calendario', to: '/calendario', icon: <CalendarTodayIcon /> }
   ];
-
-  const isAdmin = fullUser?.atr_id_rol === 1;
 
   return (
     <Drawer
@@ -103,88 +102,109 @@ const SidebarMenu = ({ user }) => {
             selected={pathname === to}
             sx={{ mb: 0.5 }}
           >
-            <ListItemIcon
-              sx={{ color: pathname === to ? 'primary.main' : 'text.secondary' }}
-            >
+            <ListItemIcon sx={{ color: pathname === to ? 'primary.main' : 'text.secondary' }}>
               {icon}
             </ListItemIcon>
             <ListItemText primary={text} />
           </ListItemButton>
         ))}
 
-        <ListItemButton onClick={toggleConfig} sx={{ mb: 0.5 }}>
-          <ListItemIcon
-            sx={{ color: openConfig ? 'primary.main' : 'text.secondary' }}
-          >
-            <AssignmentIcon />
-          </ListItemIcon>
-          <ListItemText primary="Configuración" />
-          {openConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        </ListItemButton>
-        <Collapse in={openConfig} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
-            <ListItemButton
-              component={NavLink}
-              to="/configuracion/editar-usuario"
-              selected={pathname === '/configuracion/editar-usuario'}
-              sx={{ pl: 4, mb: 0.5 }}
-            >
-              <ListItemIcon>
-                <AccountCircleIcon />
+        {/* Usuarios */}
+        {isAdmin && (
+          <>
+            <ListItemButton onClick={toggleUsers} sx={{ mb: 0.5 }}>
+              <ListItemIcon sx={{ color: openUsers ? 'primary.main' : 'text.secondary' }}>
+                <MenuIcon />
               </ListItemIcon>
-              <ListItemText primary="Editar Usuario" />
+              <ListItemText primary="Usuarios" />
+              {openUsers ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </ListItemButton>
-          </List>
-        </Collapse>
+            <Collapse in={openUsers} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                <ListItemButton
+                  component={NavLink}
+                  to="/registrar-usuario"
+                  selected={pathname === '/registrar-usuario'}
+                  sx={{ pl: 4, mb: 0.5 }}
+                >
+                  <ListItemIcon><PersonAddIcon /></ListItemIcon>
+                  <ListItemText primary="Registrar Usuario" />
+                </ListItemButton>
+                <ListItemButton
+                  component={NavLink}
+                  to="/gestionar-usuario"
+                  selected={pathname === '/gestionar-usuario'}
+                  sx={{ pl: 4, mb: 0.5 }}
+                >
+                  <ListItemIcon><PeopleIcon /></ListItemIcon>
+                  <ListItemText primary="Gestionar Usuarios" />
+                </ListItemButton>
+                <ListItemButton
+                  component={NavLink}
+                  to="/admin"
+                  selected={pathname === '/admin'}
+                  sx={{ pl: 4 }}
+                >
+                  <ListItemIcon><AdminPanelSettingsIcon /></ListItemIcon>
+                  <ListItemText primary="Panel de Administración" />
+                </ListItemButton>
+              </List>
+            </Collapse>
+          </>
+        )}
 
-        <ListItemButton onClick={toggleUsers} sx={{ mb: 0.5 }}>
-          <ListItemIcon
-            sx={{ color: openUsers ? 'primary.main' : 'text.secondary' }}
-          >
-            <MenuIcon />
-          </ListItemIcon>
-          <ListItemText primary="Usuarios" />
-          {openUsers ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        </ListItemButton>
-        <Collapse in={openUsers} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
-            {isAdmin && (
-              <ListItemButton
-                component={NavLink}
-                to="/admin"
-                selected={pathname === '/admin'}
-                sx={{ pl: 4, mb: 0.5 }}
-              >
-                <ListItemIcon>
-                  <AdminPanelSettingsIcon />
-                </ListItemIcon>
-                <ListItemText primary="Panel de Administración" />
-              </ListItemButton>
-            )}
-            <ListItemButton
-              component={NavLink}
-              to="/registrar-usuario"
-              selected={pathname === '/registrar-usuario'}
-              sx={{ pl: 4, mb: 0.5 }}
-            >
-              <ListItemIcon>
-                <PersonAddIcon />
+        {/* Configuración */}
+        {isAdmin && (
+          <>
+            <ListItemButton onClick={toggleConfig} sx={{ mb: 0.5 }}>
+              <ListItemIcon sx={{ color: openConfig ? 'primary.main' : 'text.secondary' }}>
+                <AssignmentIcon />
               </ListItemIcon>
-              <ListItemText primary="Registrar Usuario" />
+              <ListItemText primary="Configuración" />
+              {openConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </ListItemButton>
-            <ListItemButton
-              component={NavLink}
-              to="/gestionar-usuario"
-              selected={pathname === '/gestionar-usuario'}
-              sx={{ pl: 4 }}
-            >
-              <ListItemIcon>
-                <PeopleIcon />
-              </ListItemIcon>
-              <ListItemText primary="Gestionar Usuarios" />
-            </ListItemButton>
-          </List>
-        </Collapse>
+            <Collapse in={openConfig} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                <ListItemButton
+                  component={NavLink}
+                  to="/configuracion/editar-usuario"
+                  selected={pathname === '/configuracion/editar-usuario'}
+                  sx={{ pl: 4, mb: 0.5 }}
+                >
+                  <ListItemIcon><AccountCircleIcon /></ListItemIcon>
+                  <ListItemText primary="Editar Usuario" />
+                </ListItemButton>
+                <ListItemButton
+                  component={NavLink}
+                  to="/bitacora"
+                  selected={pathname === '/bitacora'}
+                  sx={{ pl: 4, mb: 0.5 }}
+                >
+                  <ListItemIcon><AssignmentIcon /></ListItemIcon>
+                  <ListItemText primary="Bitácora" />
+                </ListItemButton>
+                <ListItemButton
+                  component={NavLink}
+                  to="/parametros-seguridad"
+                  selected={pathname === '/parametros-seguridad'}
+                  sx={{ pl: 4, mb: 0.5 }}
+                >
+                  <ListItemIcon><AssignmentIcon /></ListItemIcon>
+                  <ListItemText primary="Parámetros Seguridad" />
+                </ListItemButton>
+                <ListItemButton
+                  component={NavLink}
+                  to="/parametros-sistema"
+                  selected={pathname === '/parametros-sistema'}
+                  sx={{ pl: 4 }}
+                >
+                  <ListItemIcon><AssignmentIcon /></ListItemIcon>
+                  <ListItemText primary="Parámetros Sistema" />
+                </ListItemButton>
+              </List>
+            </Collapse>
+          </>
+        )}
       </List>
     </Drawer>
   );
