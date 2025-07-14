@@ -143,7 +143,6 @@ exports.login = async (req, res) => {
         return res.status(403).json({ error: 'Cuenta pendiente de aprobación' });
       }
 
-      // Reactivar tras bloqueo expirado
       await user.update({
         atr_estado_usuario: 'ACTIVO',
         atr_intentos_fallidos: 0,
@@ -177,51 +176,46 @@ exports.login = async (req, res) => {
       atr_fecha_ultima_conexion: new Date()
     });
 
-    // Si el usuario es administrador, omitir 2FA y generar token
-if (user.atr_id_rol === 1) {
-  const token = jwt.sign(
-    { id: user.atr_id_usuario, role: user.atr_id_rol },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-  const safeUser = user.toJSON();
-  delete safeUser.atr_contrasena;
-  delete safeUser.atr_intentos_fallidos;
-  delete safeUser.atr_reset_token;
-  delete safeUser.atr_reset_expiry;
-  return res.json({ token, user: safeUser });
-}
+    if (user.atr_id_rol === 1) {
+      const token = jwt.sign(
+        { id: user.atr_id_usuario, role: user.atr_id_rol },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      const safeUser = user.toJSON();
+      delete safeUser.atr_contrasena;
+      delete safeUser.atr_intentos_fallidos;
+      delete safeUser.atr_reset_token;
+      delete safeUser.atr_reset_expiry;
+      return res.json({ token, user: safeUser });
+    }
 
-// Si no tiene 2FA configurado
-// Si no tiene 2FA y está aprobado (usuario no-admin)
-if (
-  user.atr_id_rol !== 1 &&
-  user.atr_is_approved &&
-  !user.atr_2fa_enabled &&
-  user.atr_primer_ingreso
-) {
-  const token = jwt.sign(
-    { id: user.atr_id_usuario, role: user.atr_id_rol },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-  const safeUser = user.toJSON();
-  delete safeUser.atr_contrasena;
-  delete safeUser.atr_reset_token;
-  delete safeUser.atr_reset_expiry;
-  delete safeUser.atr_2fa_secret;
+    if (
+      user.atr_id_rol !== 1 &&
+      user.atr_is_approved &&
+      !user.atr_2fa_enabled &&
+      user.atr_primer_ingreso
+    ) {
+      const token = jwt.sign(
+        { id: user.atr_id_usuario, role: user.atr_id_rol },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      const safeUser = user.toJSON();
+      delete safeUser.atr_contrasena;
+      delete safeUser.atr_reset_token;
+      delete safeUser.atr_reset_expiry;
+      delete safeUser.atr_2fa_secret;
 
-  return res.json({
-    require2FASetup: true,
-    token,
-    user: safeUser,
-    firstLogin: true
-  });
-}
+      return res.json({
+        require2FASetup: true,
+        token,
+        user: safeUser,
+        firstLogin: true
+      });
+    }
 
-// Si tiene 2FA habilitado, requiere verificación
-return res.json({ twoFARequired: true, userId: user.atr_id_usuario });
-
+    return res.json({ twoFARequired: true, userId: user.atr_id_usuario });
   } catch (error) {
     console.error('Error en login:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
@@ -280,12 +274,13 @@ exports.changePassword = async (req, res) => {
     const salt = parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 10;
     const hashed = await bcrypt.hash(newPassword, salt);
 
-    await user.update({
-      atr_contrasena: hashed,
-      atr_reset_token: null,
-      atr_reset_expiry: null,
-      atr_primer_ingreso: false // marcar primer ingreso como falso
-    });
+      await user.update({
+        atr_contrasena: hashed,
+        atr_reset_token: null,
+        atr_reset_expiry: null,
+        // Solo marcar como no primer ingreso si YA configuró el 2FA
+        atr_primer_ingreso: user.atr_2fa_enabled ? false : user.atr_primer_ingreso
+      });
 
     await PasswordHistory.create({ atr_usuario: user.atr_id_usuario, atr_contrasena: hashed });
 

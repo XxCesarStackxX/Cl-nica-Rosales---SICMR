@@ -1,5 +1,6 @@
+// frontend/src/components/dashboard/DashboardHeader.jsx
+
 import React, { useEffect, useState } from 'react';
-import { Button } from 'react-bootstrap';
 import './dashboard.css';
 
 const Dashboard = () => {
@@ -9,12 +10,6 @@ const Dashboard = () => {
     const storedUser = JSON.parse(localStorage.getItem('user'));
     setUser(storedUser);
   }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-  };
 
   return (
     <div>
@@ -27,15 +22,7 @@ const Dashboard = () => {
             Panel de control - {new Date().toLocaleDateString()}
           </small>
         </div>
-
-        <div className="button-group d-flex gap-2 align-items-center">
-          <Button variant="primary" size="sm">
-            Nuevo Paciente
-          </Button>
-          <Button variant="outline-danger" size="sm" onClick={handleLogout}>
-            Cerrar sesión
-          </Button>
-        </div>
+        {/* Botones eliminados */}
       </header>
 
       {/* Aquí puedes seguir agregando el resto del contenido del dashboard */}
@@ -44,6 +31,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-
-

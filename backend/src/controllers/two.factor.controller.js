@@ -33,7 +33,7 @@ const generate2FASecret = async (req, res) => {
   }
 };
 
-// Verifica token TOTP e habilita 2FA
+// Verifica token TOTP y habilita 2FA
 const verify2FAToken = async (req, res) => {
   try {
     const { token } = req.body;
@@ -50,8 +50,20 @@ const verify2FAToken = async (req, res) => {
       return res.status(400).json({ error: 'Código 2FA inválido' });
     }
 
-    await user.update({ atr_2fa_enabled: true });
-    return res.json({ message: '2FA habilitada correctamente.' });
+    await user.update({
+      atr_2fa_enabled: true,
+      atr_primer_ingreso: false // ✅ Aquí desactivamos el primer ingreso
+    });
+
+    const backupCodes = await BackupCode.findAll({
+      where: { atr_usuario: user.atr_id_usuario, atr_utilizado: false },
+      attributes: ['atr_codigo']
+    });
+
+    return res.json({
+      message: '2FA habilitada correctamente.',
+      backupCodes: backupCodes.map((c) => c.atr_codigo)
+    });
   } catch (error) {
     console.error('Error verificando token 2FA:', error);
     return res.status(500).json({ error: 'Error en el servidor' });
@@ -210,11 +222,20 @@ const verifyEmailCode = async (req, res) => {
   }
 };
 
-// Generador de códigos de respaldo
+// Generador de códigos de respaldo (seguros y cortos)
+function generateSimpleCode(length = 8) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // evita caracteres ambiguos
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 async function generateBackupCodes(userId) {
   const codes = [];
   for (let i = 0; i < 10; i++) {
-    const code = generateToken(10);
+    const code = generateSimpleCode(); // genera un código de 8 caracteres
     codes.push(code);
     await BackupCode.create({ atr_usuario: userId, atr_codigo: code });
   }

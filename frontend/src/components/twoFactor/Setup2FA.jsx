@@ -20,7 +20,11 @@ const Setup2FA = () => {
     const setup2FA = async () => {
       try {
         const response = await api.get('/auth/2fa/setup');
-        setQrCode(response.data.qrCode || response.data.secretUri);
+        if (response.data.qrCode) {
+          setQrCode(response.data.qrCode); // ya viene como base64 desde el backend
+        } else {
+          console.error("QR no recibido correctamente");
+        }
         setSecret(response.data.secret);
         setBackupCodes(response.data.backupCodes || []);
       } catch (err) {
@@ -66,7 +70,7 @@ const Setup2FA = () => {
         <div className="mb-6 text-center">
           <p className="mb-4">Escanea este código con Google Authenticator:</p>
           <div className="flex justify-center mb-4">
-            <QRCodeCanvas value={qrCode} />
+            <img src={qrCode} alt="QR de autenticación" className="mx-auto" />
           </div>
           <p className="text-center mb-4">O ingresa manualmente este código:</p>
           <div className="p-3 bg-gray-100 rounded text-center font-mono">{secret}</div>

@@ -54,11 +54,14 @@ export const AuthProvider = ({ children }) => {
   }, [authState.token]);
 
   // 2. Función de login optimizada (depende de logout)
-  const login = useCallback((jwt, firstLogin = false, userData = null) => {
+const login = useCallback((jwt, firstLogin = false, userData = null) => {
   localStorage.setItem('token', jwt);
   localStorage.setItem('firstLogin', firstLogin);
 
-  const destino = userData?.atr_id_rol === 1 ? '/admin' : '/dashboard';
+  const destino =
+    userData?.atr_id_rol === 1 ? '/admin'
+    : !userData?.atr_2fa_enabled && userData?.atr_primer_ingreso ? '/setup-2fa'
+    : '/dashboard';
 
   setAuthState({
     user: userData || null,
@@ -68,11 +71,7 @@ export const AuthProvider = ({ children }) => {
     isLoading: false
   });
 
-  if (firstLogin) {
-    window.location.href = '/change-password';
-  } else {
-    window.location.href = destino;
-  }
+  window.location.href = destino;
 }, []);
 
   // 3. Función para obtener datos del usuario (depende de logout)
