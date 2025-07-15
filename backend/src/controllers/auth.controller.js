@@ -76,20 +76,22 @@ exports.register = async (req, res) => {
  * Verifica token de email.
  */
 exports.verifyEmail = async (req, res) => {
-  const { token } = req.query;
-  if (!token) {
-    return res.status(400).json({ error: 'Token de verificación requerido' });
-  }
-
   try {
+    const { token } = req.query;
+
+    if (!token) {
+      throw new Error('Token de verificación requerido');
+    }
+
     const user = await User.findOne({
       where: {
         atr_verification_token: token,
         atr_token_expiry: { [Op.gt]: new Date() }
       }
     });
+
     if (!user) {
-      return res.status(400).json({ error: 'Token inválido o expirado' });
+      throw new Error('Token inválido o expirado');
     }
 
     await user.update({
@@ -100,11 +102,11 @@ exports.verifyEmail = async (req, res) => {
     });
 
     const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-    return res.redirect(`${FRONTEND_URL}/email-verified?success=true`);
+    return res.redirect(`${FRONTEND_URL}/verify-email?success=true`);
   } catch (error) {
-    console.error('Error en verifyEmail:', error);
+    console.error('Error en verifyEmail:', error.message);
     const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-    return res.redirect(`${FRONTEND_URL}/email-verified?success=false&error=${encodeURIComponent(error.message)}`);
+    return res.redirect(`${FRONTEND_URL}/verify-email?success=false&error=${encodeURIComponent(error.message)}`);
   }
 };
 

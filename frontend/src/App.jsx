@@ -1,7 +1,7 @@
 // frontend/src/App.jsx
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './assets/styles/main.css'; // Estilos globales
 import EmailVerifiedPage from './pages/EmailVerifiedPage';
@@ -26,7 +26,7 @@ function App() {
         <Routes>
           {/* Rutas públicas */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/email-verified" element={<EmailVerifiedPage />} />
+          <Route path="/verify-email" element={<EmailVerifiedPage />} />
 
           <Route
               path="/setup-2fa"

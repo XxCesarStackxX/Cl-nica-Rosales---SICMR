@@ -42,13 +42,14 @@ const SidebarMenu = ({ user }) => {
 
   const isAdmin = fullUser?.atr_id_rol === 1;
 
-  const menuItems = [
-    { text: 'Citas', to: '/citas', icon: <CalendarTodayIcon /> },
-    { text: 'Pacientes', to: '/pacientes', icon: <PeopleIcon /> },
-    { text: 'Médicos', to: '/medicos', icon: <MedicalServicesIcon /> },
-    { text: 'Tratamientos', to: '/tratamientos', icon: <HealingIcon /> },
-    { text: 'Calendario', to: '/calendario', icon: <CalendarTodayIcon /> }
-  ];
+const menuItems = [
+  ...(!isAdmin ? [{ text: 'Inicio', to: '/dashboard', icon: <DashboardIcon /> }] : []),
+  { text: 'Citas', to: '/citas', icon: <CalendarTodayIcon /> },
+  { text: 'Pacientes', to: '/pacientes', icon: <PeopleIcon /> },
+  { text: 'Médicos', to: '/medicos', icon: <MedicalServicesIcon /> },
+  { text: 'Tratamientos', to: '/tratamientos', icon: <HealingIcon /> },
+  { text: 'Calendario', to: '/calendario', icon: <CalendarTodayIcon /> }
+];
 
   return (
     <Drawer

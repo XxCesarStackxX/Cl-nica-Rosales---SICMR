@@ -1,26 +1,71 @@
 // frontend/src/pages/EmailVerifiedPage.jsx
-import React from 'react';
-import { useLocation, Link } from 'react-router-dom';
 
-export default function EmailVerifiedPage() {
-  const { search } = useLocation();
-  const params = new URLSearchParams(search);
-  const success = params.get('success') === 'true';
-  const error   = params.get('error');
+import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Paper,
+  Typography,
+  Button
+} from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+
+function EmailVerifiedPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
+  const success = queryParams.get('success') === 'true';
+  const error = queryParams.get('error');
 
   return (
-    <div className="email-verified p-5 text-center">
-      {success
-        ? <h2>✅ ¡Tu correo ha sido verificado con éxito!</h2>
-        : <>
-            <h2>❌ Hubo un problema al verificar tu correo</h2>
-            {error && <p>Error: {decodeURIComponent(error)}</p>}
+    <Box
+      minHeight="100vh"
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      bgcolor="#fff0f5"
+      px={2}
+    >
+      <Paper elevation={3} sx={{ p: 4, maxWidth: 500, width: '100%', textAlign: 'center' }}>
+        {success ? (
+          <>
+            <CheckCircleIcon sx={{ fontSize: 60, color: '#4caf50', mb: 2 }} />
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#db7093' }}>
+              ✔ CARGANDO VISTA DE VERIFICACIÓN
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+              Ya puedes iniciar sesión con tu cuenta.
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => navigate('/login')}
+              sx={{ background: '#ff69b4', '&:hover': { background: '#db7093' } }}
+            >
+              Ir al Login
+            </Button>
           </>
-      }
-      <Link to="/login" className="btn btn-primary mt-4">
-        Volver a Iniciar Sesión
-      </Link>
-    </div>
+        ) : (
+          <>
+            <ErrorIcon sx={{ fontSize: 60, color: '#f44336', mb: 2 }} />
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#c62828' }}>
+              Error al verificar el correo
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+              {error ? decodeURIComponent(error) : 'El enlace es inválido o ha expirado.'}
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => navigate('/login')}
+              sx={{ background: '#f44336', '&:hover': { background: '#c62828' } }}
+            >
+              Volver al Login
+            </Button>
+          </>
+        )}
+      </Paper>
+    </Box>
   );
 }
 
+export default EmailVerifiedPage;

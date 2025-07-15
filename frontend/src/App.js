@@ -12,7 +12,7 @@ import NotFound from './pages/NotFound';
 import ChangePassword from './components/auth/ChangePassword';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
-import EmailVerification from './components/twoFactor/Verify2FA';
+import EmailVerifiedPage from './pages/EmailVerifiedPage';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Layout from './components/Layout';
@@ -97,8 +97,9 @@ export default function App() {
 
           <Route path="/setup-2fa" element={<ProtectedRoute><Setup2FA /></ProtectedRoute>} />
 
+          
           {/* Verificación de email */}
-          <Route path="/verify-email" element={<EmailVerification />} />
+          <Route path="/verify-email" element={<EmailVerifiedPage />} />
 
           {/* Redirección tras login */}
           <Route path="/auth-redirect" element={<AuthRedirectHandler />} />
