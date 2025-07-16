@@ -58,10 +58,11 @@ const login = useCallback((jwt, firstLogin = false, userData = null) => {
   localStorage.setItem('token', jwt);
   localStorage.setItem('firstLogin', firstLogin);
 
-  const destino =
-    userData?.atr_id_rol === 1 ? '/admin'
-    : !userData?.atr_2fa_enabled && userData?.atr_primer_ingreso ? '/setup-2fa'
-    : '/dashboard';
+  const destino = userData?.atr_id_rol === 1
+    ? '/citas'
+    : !userData?.atr_2fa_enabled && userData?.atr_primer_ingreso
+      ? '/setup-2fa'
+      : '/dashboard';
 
   setAuthState({
     user: userData || null,

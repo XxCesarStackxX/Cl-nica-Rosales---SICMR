@@ -17,6 +17,7 @@ import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Layout from './components/Layout';
 import Setup2FA from './components/twoFactor/Setup2FA';
+import CitasPage from './pages/CitasPage';
 
 
 // Configuración global de axios
@@ -42,7 +43,7 @@ const AuthRedirectHandler = () => {
   const { isAuthenticated, user } = useAuth();
 
   if (isAuthenticated()) {
-    return <Navigate to={user.atr_id_rol === 1 ? '/admin' : '/dashboard'} replace />;
+    return <Navigate to={user.atr_id_rol === 1 ? '/citas' : '/dashboard'} replace />;
   }
 
   return <Navigate to="/login" replace />;
@@ -56,7 +57,7 @@ export default function App() {
           {/* Rutas públicas */}
           <Route path="/login" element={<AuthForm />} />
           <Route path="/signup" element={<SignUp />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<AuthRedirectHandler />} />
 
           {/* Protegidas: SidebarMenu */}
           <Route
@@ -66,6 +67,9 @@ export default function App() {
               </ProtectedRoute>
             }
           >
+            {/* Ruta para Citas (landing del admin) */}
+            <Route path="citas" element={<CitasPage />} />
+
             {/* /dashboard */}
             <Route path="dashboard" element={<Dashboard />} />
 

@@ -162,7 +162,7 @@ const LoginForm = () => {
         localStorage.setItem('token', data.token);
         axios.defaults.headers.common.Authorization = `Bearer ${data.token}`;
         login(data.token, data.firstLogin || false, data.user);
-        navigate(data.user.atr_id_rol === 1 ? '/admin' : '/dashboard');
+        navigate(data.user.atr_id_rol === 1 ? '/citas' : '/dashboard');
         return;
       }
 
@@ -200,7 +200,7 @@ const LoginForm = () => {
       localStorage.setItem('token', data.token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
         login(data.token, data.firstLogin || false, data.user);
-        navigate(data.user.atr_id_rol === 1 ? '/admin' : '/dashboard')
+        navigate(data.user.atr_id_rol === 1 ? '/citas' : '/dashboard');
     } catch (error) {
       if (!error.response) setTwoFAError('Error de conexión');
       else if (error.response.status === 400) setTwoFAError('Código inválido');
