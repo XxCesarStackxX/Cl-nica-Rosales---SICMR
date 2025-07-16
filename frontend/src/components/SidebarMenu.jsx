@@ -23,10 +23,10 @@ import PeopleIcon from '@mui/icons-material/People';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import HealingIcon from '@mui/icons-material/Healing';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import MenuIcon from '@mui/icons-material/Menu';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import MenuIcon from '@mui/icons-material/Menu';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
@@ -34,22 +34,25 @@ const drawerWidth = 260;
 
 const SidebarMenu = ({ user }) => {
   const { logout, user: fullUser } = useAuth();
-  const [openConfig, setOpenConfig] = React.useState(false);
-  const [openUsers, setOpenUsers] = React.useState(false);
-  const toggleConfig = () => setOpenConfig(!openConfig);
-  const toggleUsers = () => setOpenUsers(!openUsers);
-  const { pathname } = useLocation();
-
   const isAdmin = fullUser?.atr_id_rol === 1;
+  const { pathname } = useLocation();
+  const [openUsers, setOpenUsers] = React.useState(false);
+  const [openConfig, setOpenConfig] = React.useState(false);
 
-const menuItems = [
-  ...(!isAdmin ? [{ text: 'Inicio', to: '/dashboard', icon: <DashboardIcon /> }] : []),
-  { text: 'Citas', to: '/citas', icon: <CalendarTodayIcon /> },
-  { text: 'Pacientes', to: '/pacientes', icon: <PeopleIcon /> },
-  { text: 'Médicos', to: '/medicos', icon: <MedicalServicesIcon /> },
-  { text: 'Tratamientos', to: '/tratamientos', icon: <HealingIcon /> },
-  { text: 'Calendario', to: '/calendario', icon: <CalendarTodayIcon /> }
-];
+  const toggleUsers = () => setOpenUsers(prev => !prev);
+  const toggleConfig = () => setOpenConfig(prev => !prev);
+
+  // Menú principal: Citas siempre primero, sin ítem "Inicio" para admin
+  const menuItems = [
+    { text: 'Citas', to: '/citas', icon: <CalendarTodayIcon /> },
+    { text: 'Pacientes', to: '/pacientes', icon: <PeopleIcon /> },
+    { text: 'Historial', to: '/historial', icon: <AssignmentIcon /> },
+    { text: 'Exámenes', to: '/examenes', icon: <MedicalServicesIcon /> },
+    { text: 'Recetas', to: '/recetas', icon: <HealingIcon /> },
+    { text: 'Tratamientos', to: '/tratamientos', icon: <HealingIcon /> },
+    { text: 'Calendario', to: '/calendario', icon: <CalendarTodayIcon /> },
+    { text: 'Reportes', to: '/reportes', icon: <AssignmentIcon /> }
+  ];
 
   return (
     <Drawer
@@ -71,10 +74,9 @@ const menuItems = [
           Centro Médico
         </Typography>
       </Toolbar>
-
       <Divider />
-      <Box sx={{ px: 2, py: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+      <Box sx={{ px: 2, py: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Avatar sx={{ bgcolor: 'primary.main', mr: 1, width: 32, height: 32 }}>
             {user.charAt(0)}
           </Avatar>
@@ -82,13 +84,7 @@ const menuItems = [
             {user}
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={logout}
-          fullWidth
-          sx={{ mt: 2 }}
-        >
+        <Button variant="outlined" size="small" fullWidth sx={{ mt: 2 }} onClick={logout}>
           Cerrar sesión
         </Button>
       </Box>
@@ -110,7 +106,6 @@ const menuItems = [
           </ListItemButton>
         ))}
 
-        {/* Usuarios */}
         {isAdmin && (
           <>
             <ListItemButton onClick={toggleUsers} sx={{ mb: 0.5 }}>
@@ -122,6 +117,15 @@ const menuItems = [
             </ListItemButton>
             <Collapse in={openUsers} timeout="auto" unmountOnExit>
               <List component="div" disablePadding>
+                <ListItemButton
+                  component={NavLink}
+                  to="/admin"
+                  selected={pathname === '/admin'}
+                  sx={{ pl: 4, mb: 0.5 }}
+                >
+                  <ListItemIcon><AdminPanelSettingsIcon /></ListItemIcon>
+                  <ListItemText primary="Panel de Administración" />
+                </ListItemButton>
                 <ListItemButton
                   component={NavLink}
                   to="/registrar-usuario"
@@ -142,19 +146,27 @@ const menuItems = [
                 </ListItemButton>
                 <ListItemButton
                   component={NavLink}
-                  to="/admin"
-                  selected={pathname === '/admin'}
+                  to="/roles"
+                  selected={pathname === '/roles'}
+                  sx={{ pl: 4, mb: 0.5 }}
+                >
+                  <ListItemIcon><AdminPanelSettingsIcon /></ListItemIcon>
+                  <ListItemText primary="Roles" />
+                </ListItemButton>
+                <ListItemButton
+                  component={NavLink}
+                  to="/asignar-rol"
+                  selected={pathname === '/asignar-rol'}
                   sx={{ pl: 4 }}
                 >
                   <ListItemIcon><AdminPanelSettingsIcon /></ListItemIcon>
-                  <ListItemText primary="Panel de Administración" />
+                  <ListItemText primary="Asignar Rol" />
                 </ListItemButton>
               </List>
             </Collapse>
           </>
         )}
 
-        {/* Configuración */}
         {isAdmin && (
           <>
             <ListItemButton onClick={toggleConfig} sx={{ mb: 0.5 }}>
@@ -166,15 +178,6 @@ const menuItems = [
             </ListItemButton>
             <Collapse in={openConfig} timeout="auto" unmountOnExit>
               <List component="div" disablePadding>
-                <ListItemButton
-                  component={NavLink}
-                  to="/configuracion/editar-usuario"
-                  selected={pathname === '/configuracion/editar-usuario'}
-                  sx={{ pl: 4, mb: 0.5 }}
-                >
-                  <ListItemIcon><AccountCircleIcon /></ListItemIcon>
-                  <ListItemText primary="Editar Usuario" />
-                </ListItemButton>
                 <ListItemButton
                   component={NavLink}
                   to="/bitacora"
@@ -190,7 +193,7 @@ const menuItems = [
                   selected={pathname === '/parametros-seguridad'}
                   sx={{ pl: 4, mb: 0.5 }}
                 >
-                  <ListItemIcon><AssignmentIcon /></ListItemIcon>
+                  <ListItemIcon><AccountCircleIcon /></ListItemIcon>
                   <ListItemText primary="Parámetros Seguridad" />
                 </ListItemButton>
                 <ListItemButton
@@ -199,7 +202,7 @@ const menuItems = [
                   selected={pathname === '/parametros-sistema'}
                   sx={{ pl: 4 }}
                 >
-                  <ListItemIcon><AssignmentIcon /></ListItemIcon>
+                  <ListItemIcon><AccountCircleIcon /></ListItemIcon>
                   <ListItemText primary="Parámetros Sistema" />
                 </ListItemButton>
               </List>
