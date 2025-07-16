@@ -198,6 +198,15 @@ const SidebarMenu = ({ user }) => {
                 </ListItemButton>
                 <ListItemButton
                   component={NavLink}
+                  to="/security/access"
+                  selected={pathname === '/security/access'}
+                  sx={{ pl: 4, mb: 0.5 }}
+                >
+                  <ListItemIcon><AdminPanelSettingsIcon /></ListItemIcon>
+                  <ListItemText primary="Accesos" />
+                </ListItemButton>
+                <ListItemButton
+                  component={NavLink}
                   to="/parametros-sistema"
                   selected={pathname === '/parametros-sistema'}
                   sx={{ pl: 4 }}

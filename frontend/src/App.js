@@ -18,6 +18,9 @@ import AdminDashboard from './pages/AdminDashboard';
 import Layout from './components/Layout';
 import Setup2FA from './components/twoFactor/Setup2FA';
 import CitasPage from './pages/CitasPage';
+import SecurityAccessConfig from './pages/SecurityAccessConfig';
+import SecurityParameters from './pages/SecurityParameters';
+import RolesPage from './pages/RolesPage';
 
 
 // Configuración global de axios
@@ -67,6 +70,10 @@ export default function App() {
               </ProtectedRoute>
             }
           >
+            <Route path="security/access" element={<SecurityAccessConfig />} />
+            <Route path="parametros-seguridad" element={<SecurityParameters />} />
+            <Route path="roles" element={<RolesPage />} />
+
             {/* Ruta para Citas (landing del admin) */}
             <Route path="citas" element={<CitasPage />} />
 
