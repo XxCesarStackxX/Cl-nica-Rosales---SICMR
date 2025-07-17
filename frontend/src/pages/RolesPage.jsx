@@ -1,6 +1,6 @@
 // frontend/src/pages/RolesPage.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -21,27 +21,61 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  CircularProgress,
+  Alert
 } from '@mui/material';
+import {
+  getRoles,
+  createRole,
+  updateRole,
+  deleteRole
+} from '../services/api';
 
-// Datos simulados iniciales
-const initialRoles = [
-  { id: 1, name: 'Admin', description: 'Acceso completo al sistema', status: 'Activo' },
-  { id: 2, name: 'Médico', description: 'Gestión de pacientes y citas', status: 'Activo' },
-  { id: 3, name: 'Asistente', description: 'Soporte y administración de agendas', status: 'Activo' }
-];
-const statusOptions = ['Activo', 'Inactivo'];
+const statusOptions = ['ACTIVO', 'INACTIVO'];
 
 const RolesPage = () => {
-  const [roles, setRoles] = useState(initialRoles);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [open, setOpen] = useState(false);
-  const [currentRole, setCurrentRole] = useState({ id: null, name: '', description: '', status: 'Activo' });
+  const [currentRole, setCurrentRole] = useState({
+    id: null,
+    name: '',
+    description: '',
+    status: 'ACTIVO'
+  });
+  const [saving, setSaving] = useState(false);
+
+  const fetchRoles = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await getRoles();
+      setRoles(response.data);
+    } catch (err) {
+      console.error('Error fetching roles:', err);
+      setError('Error al cargar roles');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRoles();
+  }, []);
 
   const handleOpen = (role = null) => {
+    setError('');
     setCurrentRole(
       role
-        ? { ...role }
-        : { id: null, name: '', description: '', status: 'Activo' }
+        ? {
+            id: role.atr_id_rol,
+            name: role.atr_nombre_rol,
+            description: role.atr_descripcion,
+            status: role.atr_estado_rol
+          }
+        : { id: null, name: '', description: '', status: 'ACTIVO' }
     );
     setOpen(true);
   };
@@ -51,25 +85,45 @@ const RolesPage = () => {
   };
 
   const handleChange = (field) => (e) => {
-    const value = e.target.value;
-    setCurrentRole(prev => ({ ...prev, [field]: value }));
+    setCurrentRole((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleSave = () => {
-    if (!currentRole.name.trim()) {
-      return;
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    const payload = {
+      name: currentRole.name,
+      description: currentRole.description,
+      status: currentRole.status
+    };
+    try {
+      if (currentRole.id) {
+        await updateRole(currentRole.id, payload);
+      } else {
+        await createRole(payload);
+      }
+      await fetchRoles();
+      setOpen(false);
+    } catch (err) {
+      console.error('Error saving role:', err);
+      setError('Error al guardar el rol');
+    } finally {
+      setSaving(false);
     }
-    if (currentRole.id) {
-      setRoles(prev => prev.map(r => r.id === currentRole.id ? currentRole : r));
-    } else {
-      const newId = roles.length ? Math.max(...roles.map(r => r.id)) + 1 : 1;
-      setRoles(prev => [...prev, { ...currentRole, id: newId }]);
-    }
-    setOpen(false);
   };
 
-  const handleDelete = (id) => {
-    setRoles(prev => prev.filter(r => r.id !== id));
+  const handleDelete = async (id) => {
+    setSaving(true);
+    setError('');
+    try {
+      await deleteRole(id);
+      await fetchRoles();
+    } catch (err) {
+      console.error('Error deleting role:', err);
+      setError('Error al eliminar el rol');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -77,48 +131,58 @@ const RolesPage = () => {
       <Typography variant="h4" gutterBottom>
         Gestión de Roles
       </Typography>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
         <Button variant="contained" onClick={() => handleOpen(null)}>
           Crear Rol
         </Button>
       </Stack>
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Nombre</TableCell>
-              <TableCell>Descripción</TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell align="right">Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {roles.map(role => (
-              <TableRow key={role.id} hover>
-                <TableCell>{role.id}</TableCell>
-                <TableCell>{role.name}</TableCell>
-                <TableCell>{role.description}</TableCell>
-                <TableCell>{role.status}</TableCell>
-                <TableCell align="right">
-                  <Button size="small" onClick={() => handleOpen(role)}>
-                    Editar
-                  </Button>
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={() => handleDelete(role.id)}
-                    sx={{ ml: 1 }}
-                  >
-                    Eliminar
-                  </Button>
-                </TableCell>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Nombre</TableCell>
+                <TableCell>Descripción</TableCell>
+                <TableCell>Estado</TableCell>
+                <TableCell align="right">Acciones</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
+            </TableHead>
+            <TableBody>
+              {roles.map((role) => (
+                <TableRow key={role.atr_id_rol} hover>
+                  <TableCell>{role.atr_id_rol}</TableCell>
+                  <TableCell>{role.atr_nombre_rol}</TableCell>
+                  <TableCell>{role.atr_descripcion}</TableCell>
+                  <TableCell>{role.atr_estado_rol}</TableCell>
+                  <TableCell align="right">
+                    <Button size="small" onClick={() => handleOpen(role)}>
+                      Editar
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => handleDelete(role.atr_id_rol)}
+                      sx={{ ml: 1 }}
+                    >
+                      Eliminar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
       <Dialog open={open} onClose={handleClose} fullWidth>
         <DialogTitle>{currentRole.id ? 'Editar Rol' : 'Crear Rol'}</DialogTitle>
         <DialogContent>
@@ -147,7 +211,7 @@ const RolesPage = () => {
                 label="Estado"
                 onChange={handleChange('status')}
               >
-                {statusOptions.map(option => (
+                {statusOptions.map((option) => (
                   <MenuItem key={option} value={option}>
                     {option}
                   </MenuItem>
@@ -157,9 +221,11 @@ const RolesPage = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave}>
-            Guardar
+          <Button onClick={handleClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving}>
+            {saving ? 'Guardando...' : 'Guardar'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -27,4 +27,23 @@ api.interceptors.request.use((config) => {
   return config;
 }, (error) => Promise.reject(error));
 
+
+/**
+ * Roles
+ */
+// Listar todos los roles
+export const getRoles = () => api.get('/admin/roles');
+
+// Crear un nuevo rol
+// payload debe tener { name, description, status }
+export const createRole = (payload) => api.post('/admin/roles', payload);
+
+// Actualizar un rol existente
+// id: número, payload igual que en createRole
+export const updateRole = (id, payload) =>
+  api.put(`/admin/roles/${id}`, payload);
+
+// Eliminar un rol
+export const deleteRole = (id) => api.delete(`/admin/roles/${id}`);
+
 export default api;

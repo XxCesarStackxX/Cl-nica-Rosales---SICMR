@@ -13,7 +13,11 @@ const {
   getPendingUsers,
   approveUser,
   rejectUser,
-  unlockUser
+  unlockUser,
+  listRoles, 
+  createRole, 
+  updateRole, 
+  deleteRole
 } = require('../controllers/admin.controller');
 
 const router = express.Router();
@@ -119,6 +123,54 @@ router.patch(
   [param('id').isInt().withMessage('ID inválido')],
   validate,
   asyncHandler(unlockUser)
+);
+
+// ───────── Roles ─────────
+/**
+* Listar todos los roles
+*/
+router.get(
+  '/roles',
+  asyncHandler(listRoles)
+);
+
+/**
+* Crear un nuevo rol
+*/
+router.post(
+  '/roles',
+  [
+    body('name').notEmpty().withMessage('Nombre de rol requerido'),
+    body('description').optional().isString(),
+    body('status').isIn(['ACTIVO','INACTIVO']).withMessage('Estado inválido')
+  ],
+  validate,
+  asyncHandler(createRole)
+);
+
+/**
+* Actualizar un rol existente
+*/
+router.put(
+  '/roles/:id',
+  [
+    param('id').isInt().withMessage('ID debe ser un entero'),
+    body('name').notEmpty().withMessage('Nombre de rol requerido'),
+    body('description').optional().isString(),
+    body('status').isIn(['ACTIVO','INACTIVO']).withMessage('Estado inválido')
+  ],
+  validate,
+  asyncHandler(updateRole)
+);
+
+/**
+* Eliminar un rol
+*/
+router.delete(
+  '/roles/:id',
+  [ param('id').isInt().withMessage('ID debe ser un entero') ],
+  validate,
+  asyncHandler(deleteRole)
 );
 
 // Handler para rutas no encontradas dentro de /api/admin

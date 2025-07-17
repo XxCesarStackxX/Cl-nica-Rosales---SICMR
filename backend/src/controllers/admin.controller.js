@@ -2,6 +2,7 @@
 
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
+const Role = require('../models/role.model');
 const User = require('../models/user.model');
 const PasswordHistory = require('../models/passwordhistory.model');
 const Bitacora = require('../models/bitacora.model');
@@ -262,6 +263,73 @@ async function unlockUser(req, res, next) {
   }
 }
 
+/**
+* Listar todos los roles
+*/
+async function listRoles(req, res, next) {
+  try {
+    const roles = await Role.findAll({ order: [['atr_id_rol','ASC']] });
+    res.json(roles);
+  } catch (err) {
+    console.error('Error listando roles:', err);
+    next(err);
+  }
+}
+
+/**
+* Crear un nuevo rol
+*/
+async function createRole(req, res, next) {
+  try {
+    const { name, description, status } = req.body;
+    const newRole = await Role.create({
+      atr_nombre_rol: name,
+      atr_descripcion: description,
+      atr_estado_rol: status
+    });
+    res.status(201).json(newRole);
+  } catch (err) {
+    console.error('Error creando rol:', err);
+    next(err);
+  }
+}
+
+/**
+* Actualizar un rol existente
+*/
+async function updateRole(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { name, description, status } = req.body;
+    const role = await Role.findByPk(id);
+    if (!role) return res.status(404).json({ error: 'Rol no encontrado' });
+    await role.update({
+      atr_nombre_rol: name,
+      atr_descripcion: description,
+      atr_estado_rol: status
+    });
+    res.json(role);
+  } catch (err) {
+    console.error('Error actualizando rol:', err);
+    next(err);
+  }
+}
+
+/**
+* Eliminar un rol
+*/
+async function deleteRole(req, res, next) {
+  try {
+    const { id } = req.params;
+    const deleted = await Role.destroy({ where: { atr_id_rol: id } });
+    if (!deleted) return res.status(404).json({ error: 'Rol no encontrado' });
+    res.json({ success: true, message: 'Rol eliminado' });
+  } catch (err) {
+    console.error('Error eliminando rol:', err);
+    next(err);
+  }
+}
+
 module.exports = {
   listUsers,
   createUser,
@@ -272,5 +340,9 @@ module.exports = {
   getPendingUsers,
   approveUser,
   rejectUser,
-  unlockUser
+  unlockUser,
+  listRoles,
+  createRole,
+  updateRole,
+  deleteRole
 };
