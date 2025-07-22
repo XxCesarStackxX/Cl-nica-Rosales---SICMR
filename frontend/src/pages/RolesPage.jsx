@@ -50,9 +50,10 @@ const RolesPage = () => {
   const fetchRoles = async () => {
     setLoading(true);
     setError('');
+
     try {
       const response = await getRoles();
-      setRoles(response.data);
+      setRoles(Array.isArray(response) ? response : response.data);
     } catch (err) {
       console.error('Error fetching roles:', err);
       setError('Error al cargar roles');
@@ -91,17 +92,20 @@ const RolesPage = () => {
   const handleSave = async () => {
     setSaving(true);
     setError('');
+
     const payload = {
       name: currentRole.name,
       description: currentRole.description,
       status: currentRole.status
     };
+
     try {
       if (currentRole.id) {
         await updateRole(currentRole.id, payload);
       } else {
         await createRole(payload);
       }
+
       await fetchRoles();
       setOpen(false);
     } catch (err) {
@@ -112,19 +116,27 @@ const RolesPage = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    setSaving(true);
-    setError('');
-    try {
-      await deleteRole(id);
-      await fetchRoles();
-    } catch (err) {
-      console.error('Error deleting role:', err);
-      setError('Error al eliminar el rol');
-    } finally {
-      setSaving(false);
+const handleDelete = async (role) => {
+  if (role.atr_estado_rol !== 'INACTIVO') {
+    if (!window.confirm('¿Seguro que quieres inactivar este rol? Los usuarios con este rol seguirán existiendo, pero el rol quedará inactivo.')) return;
+  } else {
+    if (!window.confirm('El rol ya está inactivo. ¿Seguro que quieres eliminarlo PERMANENTEMENTE? Esta acción no se puede deshacer y solo es posible si no tiene relaciones activas.')) return;
+  }
+  setSaving(true);
+  setError('');
+  try {
+    await deleteRole(role.atr_id_rol);
+    await fetchRoles();
+  } catch (err) {
+    let msg = 'Error al eliminar el rol';
+    if (err?.response?.data?.error) {
+      msg = err.response.data.error;
     }
-  };
+    setError(msg);
+  } finally {
+    setSaving(false);
+  }
+};
 
   return (
     <Box sx={{ p: 3 }}>
@@ -136,11 +148,13 @@ const RolesPage = () => {
           {error}
         </Alert>
       )}
+
       <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
         <Button variant="contained" onClick={() => handleOpen(null)}>
           Crear Rol
         </Button>
       </Stack>
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
           <CircularProgress />
@@ -154,35 +168,55 @@ const RolesPage = () => {
                 <TableCell>Nombre</TableCell>
                 <TableCell>Descripción</TableCell>
                 <TableCell>Estado</TableCell>
+                <TableCell>Creado por</TableCell>
+                <TableCell>Fecha creación</TableCell>
+                <TableCell>Modificado por</TableCell>
+                <TableCell>Fecha modificación</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {roles.map((role) => (
-                <TableRow key={role.atr_id_rol} hover>
-                  <TableCell>{role.atr_id_rol}</TableCell>
-                  <TableCell>{role.atr_nombre_rol}</TableCell>
-                  <TableCell>{role.atr_descripcion}</TableCell>
-                  <TableCell>{role.atr_estado_rol}</TableCell>
-                  <TableCell align="right">
-                    <Button size="small" onClick={() => handleOpen(role)}>
-                      Editar
-                    </Button>
-                    <Button
-                      size="small"
-                      color="error"
-                      onClick={() => handleDelete(role.atr_id_rol)}
-                      sx={{ ml: 1 }}
-                    >
-                      Eliminar
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {roles.map((role) => {
+                const createdAt = role.atr_fecha_creacion
+                  ? new Date(role.atr_fecha_creacion).toLocaleString()
+                  : '-';
+                const updatedAt = role.atr_fecha_modificacion
+                  ? new Date(role.atr_fecha_modificacion).toLocaleString()
+                  : '-';
+
+                return (
+                  <TableRow key={role.atr_id_rol} hover>
+                    <TableCell>{role.atr_id_rol}</TableCell>
+                    <TableCell>{role.atr_nombre_rol}</TableCell>
+                    <TableCell>{role.atr_descripcion || '-'}</TableCell>
+                    <TableCell>{role.atr_estado_rol}</TableCell>
+                    <TableCell>{role.atr_creado_por || '-'}</TableCell>
+                    <TableCell>{createdAt}</TableCell>
+                    <TableCell>{role.atr_modificado_por || '-'}</TableCell>
+                    <TableCell>{updatedAt}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" onClick={() => handleOpen(role)}>
+                        Editar
+                      </Button>
+                      {role.atr_estado_rol === 'ACTIVO' && (
+                        <Button size="small" color="error" sx={{ ml: 1 }} onClick={() => handleDelete(role)}>
+                          Inactivar
+                        </Button>
+                      )}
+                      {role.atr_estado_rol === 'INACTIVO' && (
+                        <Button size="small" color="error" sx={{ ml: 1 }} onClick={() => handleDelete(role)}>
+                          Eliminar
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
       )}
+
       <Dialog open={open} onClose={handleClose} fullWidth>
         <DialogTitle>{currentRole.id ? 'Editar Rol' : 'Crear Rol'}</DialogTitle>
         <DialogContent>

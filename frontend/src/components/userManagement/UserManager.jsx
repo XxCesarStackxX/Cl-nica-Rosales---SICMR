@@ -31,6 +31,19 @@ const UserManagement = () => {
   const [resetResult, setResetResult] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
 
+const handleUnlock = async (id) => {
+  setActionLoading((prev) => ({ ...prev, [id]: true }));
+  setError('');
+  try {
+    await api.put(`/admin/users/${id}`, { atr_estado_usuario: 'ACTIVO' });
+    await fetchUsers();
+  } catch {
+    setError('Error al desbloquear');
+  } finally {
+    setActionLoading((prev) => ({ ...prev, [id]: false }));
+  }
+};
+
   const normalizeUser = (u) => ({
     id: u.atr_id_usuario,
     username: u.atr_usuario,
@@ -109,28 +122,6 @@ const UserManagement = () => {
     }
   };
 
-  const handleBlock = async (id) => {
-    if (user?.atr_id_rol !== 1) return;
-    setActionLoading((prev) => ({ ...prev, [id]: true }));
-    try {
-      await api.patch(`/admin/users/${id}/block`);
-      await fetchUsers();
-    } catch {
-      setError('Error al bloquear');
-    } finally {
-      setActionLoading((prev) => ({ ...prev, [id]: false }));
-    }
-  };
-
-  const handleUnlock = async (userId) => {
-    try {
-      await api.patch(`/admin/unlock-user/${userId}`);
-      alert('Usuario desbloqueado correctamente');
-    } catch {
-      alert('Error al desbloquear usuario');
-    }
-  };
-
   const handleModalClose = () => {
     setShowCreate(false);
     setNewUsername('');
@@ -179,18 +170,6 @@ const UserManagement = () => {
                 <td className="d-flex gap-2">
                   <Button
                     size="sm"
-                    variant="warning"
-                    disabled={actionLoading[u.id]}
-                    onClick={() => handleBlock(u.id)}
-                  >
-                    {actionLoading[u.id] ? (
-                      <Spinner size="sm" animation="border" />
-                    ) : (
-                      'Bloquear'
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
                     variant="secondary"
                     disabled={actionLoading[u.id]}
                     onClick={() => handleReset(u.id)}
@@ -201,10 +180,16 @@ const UserManagement = () => {
                       'Resetear'
                     )}
                   </Button>
+                  {resetResult?.id === u.id && resetResult.password && (
+                    <small className="ms-2 text-success">
+                      Nueva: {resetResult.password}
+                    </small>
+                  )}
+                  {/* Botón Desbloquear SOLO si el usuario está bloqueado */}
                   {u.status === 'BLOQUEADO' && (
                     <Button
                       size="sm"
-                      variant="info"
+                      variant="success"
                       disabled={actionLoading[u.id]}
                       onClick={() => handleUnlock(u.id)}
                     >
@@ -214,11 +199,6 @@ const UserManagement = () => {
                         'Desbloquear'
                       )}
                     </Button>
-                  )}
-                  {resetResult?.id === u.id && resetResult.password && (
-                    <small className="ms-2 text-success">
-                      Nueva: {resetResult.password}
-                    </small>
                   )}
                 </td>
               </tr>

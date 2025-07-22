@@ -18,10 +18,12 @@ import AdminDashboard from './pages/AdminDashboard';
 import Layout from './components/Layout';
 import Setup2FA from './components/twoFactor/Setup2FA';
 import CitasPage from './pages/CitasPage';
-import SecurityAccessConfig from './pages/SecurityAccessConfig';
 import SecurityParameters from './pages/SecurityParameters';
 import RolesPage from './pages/RolesPage';
-
+import ObjectsPage from './pages/ObjectsPage';
+import PermisosPage from './pages/PermisosPage';
+import GestionarUsuariosPage from './pages/GestionarUsuariosPage';
+import RegistrarUsuarioPage from './pages/RegistrarUsuarioPage';
 
 // Configuración global de axios
 axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api/auth';
@@ -70,9 +72,35 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="security/access" element={<SecurityAccessConfig />} />
+            {/* CRUD Objetos — sólo ADMIN */}
+            <Route
+              path="objects"
+              element={
+            <ProtectedRoute requiredRole={1}>
+            <ObjectsPage />
+            </ProtectedRoute>
+            }
+          />
             <Route path="parametros-seguridad" element={<SecurityParameters />} />
             <Route path="roles" element={<RolesPage />} />
+
+            {/* Rustas CRUD usuarios */}
+            <Route
+              path="gestionar-usuario"
+              element={
+                <ProtectedRoute requiredRole={1}>
+                  <GestionarUsuariosPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="registrar-usuario"
+              element={
+                <ProtectedRoute requiredRole={1}>
+                  <RegistrarUsuarioPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Ruta para Citas (landing del admin) */}
             <Route path="citas" element={<CitasPage />} />
@@ -80,9 +108,19 @@ export default function App() {
             {/* /dashboard */}
             <Route path="dashboard" element={<Dashboard />} />
 
+            {/* Permisos */}
+            <Route
+              path="admin/permisos"
+              element={
+                <ProtectedRoute requiredRole={1}>
+                  <PermisosPage />
+                </ProtectedRoute>
+              }
+            />
+
             {/* /admin */}
             <Route
-              path="admin/*"
+              path="admin-dashboard"
               element={
                 <ProtectedRoute requiredRole={1}>
                   <AdminDashboard />

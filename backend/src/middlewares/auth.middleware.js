@@ -3,6 +3,8 @@
 
 const jwt = require('jsonwebtoken');
 const User = require('../models/user.model');
+const Permiso = require('../models/permiso.model');
+const Objeto = require('../models/object.model');
 
 /**
  * Verifica y decodifica el token JWT, carga el usuario y valida estado
@@ -43,7 +45,6 @@ const authenticate = async (req, res, next) => {
 
     if (user.atr_reset_expiry && new Date(user.atr_reset_expiry) > new Date()) {
       const unlockTime = new Date(user.atr_reset_expiry).toLocaleString();
-
       return res.status(403).json({
         error: `Cuenta bloqueada temporalmente hasta ${unlockTime}`
       });
@@ -60,7 +61,6 @@ const authenticate = async (req, res, next) => {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expirado' });
     }
-
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Token inválido' });
     }
@@ -77,11 +77,9 @@ const isAdmin = (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
-
     if (req.user.atr_id_rol !== 1) {
       return res.status(403).json({ error: 'Acceso restringido a administradores' });
     }
-
     next();
   } catch (error) {
     console.error('Error en middleware isAdmin:', error);
@@ -113,6 +111,58 @@ const checkFirstLogin = (req, res, next) => {
   }
 };
 
+/**
+ * Middleware general para verificar permisos por objeto y acción (CRUD)
+ * Uso: authorizeByPermission('Roles', 'consultar')
+ * 
+ * Acciones posibles: 'consultar', 'insertar', 'actualizar', 'eliminar'
+ * 
+ * El administrador (rol 1) siempre tiene acceso completo.
+ */
+const authorizeByPermission = (nombreObjeto, accion) => {
+  return async (req, res, next) => {
+    try {
+      // Si el usuario es admin, acceso total
+      if (req.user && req.user.atr_id_rol === 1) {
+        // LOG EXTRA: para depurar
+        console.log('Acceso admin permitido sin validar permisos.');
+        return next();
+      }
+
+      // Buscar objeto en BD para obtener su ID
+      const objeto = await Objetos.findOne({ where: { atr_objeto: nombreObjeto } });
+      if (!objeto) {
+        console.error(`No se encontró el objeto con nombre "${nombreObjeto}" en la tabla tbl_objetos.`);
+        return res.status(404).json({ error: `Objeto "${nombreObjeto}" no encontrado` });
+      }
+
+      // Buscar permiso correspondiente
+      const permiso = await Permisos.findOne({
+        where: {
+          atr_id_rol: req.user.atr_id_rol,
+          atr_id_objeto: objeto.atr_id_objetos
+        }
+      });
+
+      if (!permiso) {
+        console.error(`No se encontró permiso para rol ${req.user.atr_id_rol} y objeto ${objeto.atr_id_objetos}.`);
+        return res.status(403).json({ error: 'No tienes permiso para esta acción en este módulo' });
+      }
+
+      const value = permiso[`atr_permiso_${accion}`];
+      if (!(value === 'SI' || value === 1 || value === '1')) {
+        console.error(`Permiso denegado: valor de permiso atr_permiso_${accion} es "${value}"`);
+        return res.status(403).json({ error: 'No tienes permiso para esta acción en este módulo' });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Error en authorizeByPermission:', error);
+      res.status(500).json({ error: 'Error al verificar permisos' });
+    }
+  };
+};
+
 // Middleware combinado para rutas de administrador
 const authenticateAdmin = [authenticate, isAdmin];
 
@@ -120,5 +170,6 @@ module.exports = {
   authenticate,
   isAdmin,
   checkFirstLogin,
-  authenticateAdmin
+  authenticateAdmin,
+  authorizeByPermission
 };

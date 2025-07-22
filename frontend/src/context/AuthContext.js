@@ -1,4 +1,5 @@
-// src/context/AuthContext.js
+// frontend/src/context/AuthContext.js
+
 import React, { 
   createContext, 
   useContext, 
@@ -12,7 +13,7 @@ import axios from 'axios';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  // Estado optimizado con carga de datos segura
+  // Estado inicial con permisos
   const [authState, setAuthState] = useState(() => {
     const token = localStorage.getItem('token');
     const firstLogin = localStorage.getItem('firstLogin') === 'true';
@@ -20,27 +21,26 @@ export const AuthProvider = ({ children }) => {
     return {
       user: null,
       token,
+      permisos: [],
       firstLogin,
       isAuthenticated: false,
       isLoading: !!token
     };
   });
 
-  // 1. Declarar logout PRIMERO - SOLUCIÓN CLAVE
+  // Logout
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('firstLogin');
-    
     delete axios.defaults.headers.common['Authorization'];
-    
     setAuthState({
       user: null,
       token: null,
+      permisos: [],
       firstLogin: false,
       isAuthenticated: false,
       isLoading: false
     });
-    
     window.location.href = '/login';
   }, []);
 
@@ -53,49 +53,51 @@ export const AuthProvider = ({ children }) => {
     }
   }, [authState.token]);
 
-  // 2. Función de login optimizada (depende de logout)
-const login = useCallback((jwt, firstLogin = false, userData = null) => {
-  localStorage.setItem('token', jwt);
-  localStorage.setItem('firstLogin', firstLogin);
+  // Login
+  const login = useCallback((jwt, firstLogin = false, userData = null, permisos = []) => {
+    localStorage.setItem('token', jwt);
+    localStorage.setItem('firstLogin', firstLogin);
 
-  const destino = userData?.atr_id_rol === 1
-    ? '/citas'
-    : !userData?.atr_2fa_enabled && userData?.atr_primer_ingreso
-      ? '/setup-2fa'
-      : '/dashboard';
+    const destino = userData?.atr_id_rol === 1
+      ? '/citas'
+      : !userData?.atr_2fa_enabled && userData?.atr_primer_ingreso
+        ? '/setup-2fa'
+        : '/dashboard';
 
-  setAuthState({
-    user: userData || null,
-    token: jwt,
-    firstLogin,
-    isAuthenticated: true,
-    isLoading: false
-  });
+    setAuthState({
+      user: userData || null,
+      token: jwt,
+      permisos: permisos || [],
+      firstLogin,
+      isAuthenticated: true,
+      isLoading: false
+    });
 
-  window.location.href = destino;
-}, []);
+    window.location.href = destino;
+  }, []);
 
-  // 3. Función para obtener datos del usuario (depende de logout)
+  // Obtener datos de usuario y permisos
   const fetchUserData = useCallback(async () => {
     if (!authState.token) return;
-    
     try {
       const response = await axios.get('/api/auth/me');
-      const userData = response.data;
-      
+      // La API YA retorna user + permisos como propiedades raíz
+      const userData = { ...response.data };
+      delete userData.permisos; // Separamos los permisos explícitamente
+      const permisos = response.data.permisos || [];
       setAuthState(prev => ({
         ...prev,
         user: userData,
+        permisos,
         isAuthenticated: true,
         isLoading: false
       }));
     } catch (error) {
       console.error('Failed to fetch user data:', error);
-      logout(); // Ahora logout está definido
+      logout();
     }
-  }, [authState.token, logout]); // Dependencia correcta
+  }, [authState.token, logout]);
 
-  // 4. Verificar token y cargar datos del usuario
   useEffect(() => {
     const validateToken = async () => {
       if (authState.token && !authState.user) {
@@ -103,7 +105,7 @@ const login = useCallback((jwt, firstLogin = false, userData = null) => {
           await fetchUserData();
         } catch (error) {
           console.error('Token validation failed:', error);
-          logout(); // Ahora logout está definido
+          logout();
         }
       } else if (!authState.token) {
         setAuthState(prev => ({ ...prev, isLoading: false }));
@@ -111,9 +113,10 @@ const login = useCallback((jwt, firstLogin = false, userData = null) => {
     };
 
     validateToken();
+    // eslint-disable-next-line
   }, [authState.token, authState.user, fetchUserData, logout]);
 
-  // 5. Otras funciones
+  // Completar primer login
   const completeFirstLogin = useCallback(() => {
     localStorage.setItem('firstLogin', 'false');
     setAuthState(prev => ({
@@ -122,10 +125,12 @@ const login = useCallback((jwt, firstLogin = false, userData = null) => {
     }));
   }, []);
 
+  // Validar si tiene un rol
   const hasRole = useCallback((roleId) => {
     return authState.user?.atr_id_rol === roleId;
   }, [authState.user]);
 
+  // Actualizar el usuario en contexto
   const updateUser = useCallback((userData) => {
     setAuthState(prev => ({
       ...prev,
@@ -133,10 +138,9 @@ const login = useCallback((jwt, firstLogin = false, userData = null) => {
     }));
   }, []);
 
-  // Verificación activa de autenticación
+  // Verificar autenticación activa
   const verifyAuthentication = useCallback(async () => {
     if (!authState.token) return false;
-    
     try {
       const response = await axios.get('/api/auth/verify-token');
       return response.data.valid;
@@ -146,11 +150,29 @@ const login = useCallback((jwt, firstLogin = false, userData = null) => {
     }
   }, [authState.token]);
 
-  // Valor del contexto
+  // ======= HELPER para consultar permisos =======
+  const hasPermission = useCallback((objeto, accion) => {
+    // Busca el permiso del objeto correspondiente
+    const permiso = authState.permisos?.find(
+      p => (p.objeto || p.atr_objeto || p.atr_nombre_objeto) === objeto
+    );
+    if (!permiso) return false;
+    // Lee el valor esperado ('SI', '1', true)
+    const mapCampo = {
+      CONSULTAR: permiso.consultar ?? permiso.atr_permiso_consultar,
+      INSERTAR: permiso.insertar ?? permiso.atr_permiso_insercion,
+      ACTUALIZAR: permiso.actualizar ?? permiso.atr_permiso_actualizacion,
+      ELIMINAR: permiso.eliminar ?? permiso.atr_permiso_eliminacion
+    };
+    const value = mapCampo[accion];
+    return value === 'SI' || value === 1 || value === '1' || value === true;
+  }, [authState.permisos]);
+
+  // Context value
   const contextValue = useMemo(() => ({
     user: authState.user,
     token: authState.token,
-    // Ahora isAuthenticated es función para que ProtectedRoute lo invoque
+    permisos: authState.permisos,
     isAuthenticated: () => authState.isAuthenticated,
     isLoading: authState.isLoading,
     firstLogin: authState.firstLogin,
@@ -159,10 +181,12 @@ const login = useCallback((jwt, firstLogin = false, userData = null) => {
     completeFirstLogin,
     hasRole,
     updateUser,
-    verifyAuthentication
+    verifyAuthentication,
+    hasPermission
   }), [
     authState.user,
     authState.token,
+    authState.permisos,
     authState.isAuthenticated,
     authState.isLoading,
     authState.firstLogin,
@@ -171,7 +195,8 @@ const login = useCallback((jwt, firstLogin = false, userData = null) => {
     completeFirstLogin,
     hasRole,
     updateUser,
-    verifyAuthentication
+    verifyAuthentication,
+    hasPermission
   ]);
 
   return (

@@ -1,4 +1,5 @@
 // backend/src/index.js
+
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -11,6 +12,8 @@ const xss = require('xss');
 const sequelize = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
+const objectRoutes = require('./routes/object.routes');
+const permisoRoutes = require('./routes/permiso.routes'); // ← Agregamos la importación de rutas de permisos
 const { authenticate, isAdmin } = require('./middlewares/auth.middleware');
 const Parametro = require('./models/parametro.model');
 
@@ -60,11 +63,19 @@ const authLimiter =
         max: 10,
         message: { error: 'Too many requests, please try again later.' },
       })
-    : (req, res, next) => next(); // desactiva limitador en desarrollo  
+    : (req, res, next) => next();
 
-// — Montaje de rutas API —
-app.use('/api/auth', authLimiter, authRoutes);
+
+// — CRUD de objetos bajo /api/admin/objects — (móntalo primero)
+app.use('/api/admin/objects', objectRoutes);
+
+// — Montaje general de rutas admin (después)
 app.use('/api/admin', authenticate, isAdmin, adminRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+
+// — Rutas de permisos (todas protegidas) —
+app.use('/api/permisos', permisoRoutes);
+
 
 app.get('/api/params/:key', async (req, res) => {
   try {
@@ -74,7 +85,6 @@ app.get('/api/params/:key', async (req, res) => {
     if (!parametro) {
       return res.status(404).json({ error: 'Parameter not found' });
     }
-
     return res.json({ value: parametro.atr_valor });
   } catch (err) {
     return res.status(500).json({ error: 'Internal server error' });
@@ -84,11 +94,9 @@ app.get('/api/params/:key', async (req, res) => {
 // — Servir front-end estático —
 app.use(express.static(path.join(__dirname, '../../frontend/build')));
 app.get('*', (req, res, next) => {
-  // Si la ruta empieza con /api, continuamos al siguiente handler
   if (req.path.startsWith('/api')) {
     return next();
   }
-  // Cualquier otra ruta devuelve el index de React
   return res.sendFile(path.join(__dirname, '../../frontend/build', 'index.html'));
 });
 
@@ -98,7 +106,6 @@ app.use('/api', (req, res) => {
 });
 
 // — Handler global de errores —
-// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   // eslint-disable-next-line no-console
   console.error(err);
@@ -106,13 +113,15 @@ app.use((err, req, res, next) => {
     .status(err.statusCode || 500)
     .json({
       success: false,
-      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
+      error:
+        process.env.NODE_ENV === 'development'
+          ? err.message
+          : 'Internal server error',
     });
 });
 
 // — Inicio de servidor y conexión DB —
 const PORT = parseInt(process.env.PORT, 10) || 5000;
-
 sequelize
   .authenticate()
   .then(() => {

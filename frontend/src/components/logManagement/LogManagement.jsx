@@ -1,158 +1,283 @@
 // frontend/src/components/logManagement/LogManagement.jsx
 
-import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
-import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Paper,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  TextField,
+  Button,
+  Stack,
+  CircularProgress,
+  Alert
+} from '@mui/material';
+import { getLogs, deleteLog, getUsers, getObjects } from '../../services/api';
 import './log-management.css';
-import api from '../../services/api';
 
 const LogManagement = () => {
-  const { user, token } = useAuth();
   const [logs, setLogs] = useState([]);
-  const [filters, setFilters] = useState({ username: '', action: '', from: '', to: '' });
+  const [users, setUsers] = useState([]);
+  const [objects, setObjects] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [filters, setFilters] = useState({
+    username: '',
+    objeto: '',
+    action: '',
+    from: '',
+    to: ''
+  });
 
-  const fetchLogs = useCallback(async () => {
+  // Cargar usuarios y objetos al inicio
+  useEffect(() => {
+    (async () => {
+      try {
+        const [usersData, objectsData] = await Promise.all([
+          getUsers(),
+          getObjects()
+        ]);
+        setUsers(usersData);
+        setObjects(objectsData);
+      } catch (err) {
+        setError('No se pudieron cargar usuarios u objetos');
+      }
+    })();
+  }, []);
+
+  // Obtener nombre de usuario por ID
+  const getUserNameById = (id) => {
+    const user = users.find(u => u.atr_id_usuario === id || u.id === id);
+    return user ? user.atr_nombre_usuario : '-';
+  };
+
+  // Obtener nombre de rol por ID de rol
+  const getRoleNameById = (roleId) => {
+    const user = users.find(u => u.atr_id_rol === roleId);
+    return user && user.roleName ? user.roleName : '';
+  };
+
+  // Obtener nombre de objeto por ID
+  const getObjectNameById = (id) => {
+    const obj = objects.find(o => o.atr_id_objetos === id || o.id === id);
+    return obj ? obj.atr_objeto : '-';
+  };
+
+  // Mapea los logs para mostrar nombres en vez de IDs
+  const mapLogs = (rawLogs) => {
+    return rawLogs.map(log => ({
+      ID_BITACORA: log.id || log.ID_BITACORA,
+      USUARIO: getUserNameById(log.idUsuario || log.usuario),
+      ROL: (() => {
+        const user = users.find(u => u.atr_id_usuario === (log.idUsuario || log.usuario));
+        return user && user.roleName ? user.roleName : user && user.atr_id_rol ? user.atr_id_rol : '-';
+      })(),
+      OBJETO: getObjectNameById(log.idObjeto || log.objeto),
+      ACCION: log.accion || log.ACCION || '-',
+      DESCRIPCION: log.descripcion || log.DESCRIPCION || '-',
+      FECHA: log.fecha || log.FECHA || '-'
+    }));
+  };
+
+  // Filtra por nombre de usuario, objeto, acción y fechas
+  const applyFilters = (logs) => {
+    return logs.filter(log => {
+      // Filtro por usuario (nombre)
+      if (filters.username && log.USUARIO && !log.USUARIO.toLowerCase().includes(filters.username.toLowerCase())) {
+        return false;
+      }
+      // Filtro por objeto (nombre)
+      if (filters.objeto && log.OBJETO && !log.OBJETO.toLowerCase().includes(filters.objeto.toLowerCase())) {
+        return false;
+      }
+      // Filtro por acción
+      if (filters.action && log.ACCION && !log.ACCION.toLowerCase().includes(filters.action.toLowerCase())) {
+        return false;
+      }
+      // Filtro por fechas (corrige timezones)
+      if (filters.from) {
+        const logDate = new Date(log.FECHA);
+        const fromDate = new Date(filters.from + 'T00:00:00');
+        if (logDate < fromDate) return false;
+      }
+      if (filters.to) {
+        const logDate = new Date(log.FECHA);
+        const toDate = new Date(filters.to + 'T23:59:59');
+        if (logDate > toDate) return false;
+      }
+      return true;
+    });
+  };
+
+  // Traer logs y hacer el mapeo
+  const fetchData = async () => {
     setLoading(true);
     setError('');
     try {
-      const params = {};
-      Object.entries(filters).forEach(([k, v]) => {
-        if (v) params[k] = v;
-      });
-      const res = await api.get('/admin/logs', {
-        params,
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setLogs(res.data);
-    } catch {
-      setError('No se pudieron cargar los registros');
+      const response = await getLogs();
+      const mapped = mapLogs(response.data || response);
+      setLogs(mapped);
+    } catch (err) {
+      setError('No fue posible cargar la bitácora');
     } finally {
       setLoading(false);
     }
-  }, [filters, token]);
+  };
 
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    // Solo carga logs cuando ya tienes usuarios y objetos
+    if (users.length && objects.length) fetchData();
+  }, [users, objects]);
 
-  const handleChange = e => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+  const handleChange = (field) => (e) => {
+    setFilters(prev => ({ ...prev, [field]: e.target.value }));
   };
 
-  const clearFilters = () => {
-    setFilters({ username: '', action: '', from: '', to: '' });
+  const handleFilter = () => {
+    setLogs(prev => applyFilters(prev));
   };
 
-  const handleDelete = async id => {
-    if (user?.atr_id_rol !== 1) return;
-    if (!window.confirm('¿Eliminar registro?')) return;
+  const handleClear = () => {
+    setFilters({ username: '', objeto: '', action: '', from: '', to: '' });
+    fetchData();
+  };
+
+  const handleDeleteLog = async (id) => {
+    setDeleting(true);
+    setError('');
     try {
-      await api.delete(`/admin/logs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setLogs(prev => prev.filter(l => l.id !== id));
-    } catch {
-      setError('Error al eliminar registro');
+      await deleteLog(id);
+      fetchData();
+    } catch (err) {
+      setError('No fue posible eliminar el registro de bitácora');
+    } finally {
+      setDeleting(false);
     }
   };
 
   return (
-    <div className="log-management p-4">
-      <h4 className="mb-3">Gestión de Bitácora</h4>
-
-      <Form className="mb-3">
-        <Row className="align-items-end">
-          <Col md={3}>
-            <Form.Label>Usuario</Form.Label>
-            <Form.Control
-              name="username"
-              value={filters.username}
-              onChange={handleChange}
-            />
-          </Col>
-          <Col md={3}>
-            <Form.Label>Acción</Form.Label>
-            <Form.Control
-              name="action"
-              value={filters.action}
-              onChange={handleChange}
-            />
-          </Col>
-          <Col md={2}>
-            <Form.Label>Desde</Form.Label>
-            <Form.Control
-              type="date"
-              name="from"
-              value={filters.from}
-              onChange={handleChange}
-            />
-          </Col>
-          <Col md={2}>
-            <Form.Label>Hasta</Form.Label>
-            <Form.Control
-              type="date"
-              name="to"
-              value={filters.to}
-              onChange={handleChange}
-            />
-          </Col>
-          <Col md={2} className="d-flex gap-2">
-            <Button variant="primary" onClick={fetchLogs}>Filtrar</Button>
-            <Button variant="outline-secondary" onClick={clearFilters}>Limpiar</Button>
-          </Col>
-        </Row>
-      </Form>
-
+    <Box className="log-management" sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Gestión de Bitácora
+      </Typography>
       {error && (
-        <Alert variant="danger" dismissible onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
-
+      <Paper sx={{ p: 2, mb: 2, bgcolor: 'background.default' }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+          <TextField
+            label="Usuario"
+            value={filters.username}
+            onChange={handleChange('username')}
+            size="small"
+          />
+          <TextField
+            label="Objeto"
+            value={filters.objeto}
+            onChange={handleChange('objeto')}
+            size="small"
+          />
+          <TextField
+            label="Acción"
+            value={filters.action}
+            onChange={handleChange('action')}
+            size="small"
+          />
+          <TextField
+            label="Desde"
+            type="date"
+            value={filters.from}
+            onChange={handleChange('from')}
+            InputLabelProps={{ shrink: true }}
+            size="small"
+          />
+          <TextField
+            label="Hasta"
+            type="date"
+            value={filters.to}
+            onChange={handleChange('to')}
+            InputLabelProps={{ shrink: true }}
+            size="small"
+          />
+          <Button variant="contained" onClick={handleFilter}>
+            Filtrar
+          </Button>
+          <Button variant="outlined" onClick={handleClear}>
+            Limpiar
+          </Button>
+        </Stack>
+      </Paper>
       {loading ? (
-        <Spinner animation="border" />
-      ) : logs.length > 0 ? (
-        <Table striped bordered hover>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Usuario</th>
-              <th>Acción</th>
-              <th>Fecha</th>
-              {user?.atr_id_rol === 1 && <th>Acciones</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map(log => (
-              <tr key={log.id}>
-                <td>{log.id}</td>
-                <td>{log.username}</td>
-                <td>{log.action}</td>
-                <td>{new Date(log.createdAt).toLocaleString()}</td>
-                {user?.atr_id_rol === 1 && (
-                  <td>
-                    <Button
-                      size="sm"
-                      variant="outline-danger"
-                      onClick={() => handleDelete(log.id)}
-                    >
-                      Eliminar
-                    </Button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
       ) : (
-        <Alert variant="info">No hay registros que mostrar.</Alert>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Usuario</TableCell>
+                <TableCell>Rol</TableCell>
+                <TableCell>Objeto</TableCell>
+                <TableCell>Acción</TableCell>
+                <TableCell>Descripción</TableCell>
+                <TableCell>Fecha</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {logs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    No hay registros que mostrar.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                logs.map(log => (
+                  <TableRow key={log.ID_BITACORA} hover>
+                    <TableCell>{log.ID_BITACORA}</TableCell>
+                    <TableCell>{log.USUARIO}</TableCell>
+                    <TableCell>{log.ROL}</TableCell>
+                    <TableCell>{log.OBJETO}</TableCell>
+                    <TableCell>{log.ACCION}</TableCell>
+                    <TableCell>{log.DESCRIPCION}</TableCell>
+                    <TableCell>
+                      {log.FECHA !== '-'
+                        ? new Date(log.FECHA).toLocaleDateString('es-HN', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit'
+                          })
+                        : '-'}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        color="error"
+                        disabled={deleting}
+                        onClick={() => handleDeleteLog(log.ID_BITACORA)}
+                      >
+                        Eliminar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
-    </div>
+    </Box>
   );
-};                
+};
 
 export default LogManagement;

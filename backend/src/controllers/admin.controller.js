@@ -7,6 +7,8 @@ const User = require('../models/user.model');
 const PasswordHistory = require('../models/passwordhistory.model');
 const Bitacora = require('../models/bitacora.model');
 const { sendApprovalEmail, sendRejectionEmail } = require('../services/email.service');
+const BitacoraService = require('../services/bitacora.service');
+const { OBJETO_ROLES } = require('../config/constants');
 
 // Genera contraseña aleatoria segura
 function generarContraseña(length = 12) {
@@ -91,14 +93,65 @@ async function createUser(req, res, next) {
   }
 }
 
-// Bloquear usuario
-async function blockUser(req, res, next) {
+// Actualizar usuario
+async function updateUser(req, res, next) {
   try {
     const { id } = req.params;
-    await User.update({ atr_estado_usuario: 'BLOQUEADO' }, { where: { atr_id_usuario: id } });
-    res.json({ success: true, message: 'Usuario bloqueado' });
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Solo actualiza los campos enviados (parcial update)
+    const updateData = {};
+    if (req.body.atr_usuario !== undefined) updateData.atr_usuario = req.body.atr_usuario;
+    if (req.body.atr_nombre_usuario !== undefined) updateData.atr_nombre_usuario = req.body.atr_nombre_usuario;
+    if (req.body.atr_correo_electronico !== undefined) updateData.atr_correo_electronico = req.body.atr_correo_electronico;
+    if (req.body.atr_id_rol !== undefined) updateData.atr_id_rol = req.body.atr_id_rol;
+    if (req.body.atr_estado_usuario !== undefined) updateData.atr_estado_usuario = req.body.atr_estado_usuario;
+    updateData.atr_modificado_por = req.user?.atr_usuario || 'sistema';
+    updateData.atr_fecha_modificacion = new Date();
+
+    await user.update(updateData);
+
+    res.json({ success: true, message: 'Usuario actualizado correctamente', user });
   } catch (err) {
-    console.error('Error bloqueando usuario:', err);
+    console.error('Error actualizando usuario:', err);
+    next(err);
+  }
+}
+
+// Eliminar o inactivar usuario (borrado lógico + físico)
+async function deleteUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Si el usuario está ACTIVO o BLOQUEADO, solo lo INACTIVA (borrado lógico)
+    if (user.atr_estado_usuario !== 'INACTIVO') {
+      await user.update({ atr_estado_usuario: 'INACTIVO' });
+      return res.json({ success: true, logicalDelete: true, message: 'Usuario inactivado correctamente' });
+    }
+
+    // Si el usuario ya está INACTIVO, intenta borrado físico SOLO SI no tiene dependencias
+    // Ejemplo: primero borra backup codes
+    const BackupCode = require('../models/backupcode.model');
+    await BackupCode.destroy({ where: { atr_usuario: id } });
+
+    // Si tienes otras tablas dependientes (ejemplo, bitácora, citas), agrega aquí sus destroy
+    // await OtraTabla.destroy({ where: { atr_usuario: id } });
+
+    // Intenta borrar físicamente
+    await user.destroy();
+
+    res.json({ success: true, logicalDelete: false, message: 'Usuario eliminado físicamente' });
+  } catch (err) {
+    if (err.name === 'SequelizeForeignKeyConstraintError') {
+      // No lo pudo borrar por dependencias, responde con error claro
+      return res.status(400).json({
+        error: 'No se puede eliminar el usuario porque tiene información relacionada (bitácora, citas, etc.)'
+      });
+    }
+    console.error('Error eliminando usuario:', err);
     next(err);
   }
 }
@@ -263,6 +316,18 @@ async function unlockUser(req, res, next) {
   }
 }
 
+// Bloquear usuario
+async function blockUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    await User.update({ atr_estado_usuario: 'BLOQUEADO' }, { where: { atr_id_usuario: id } });
+    res.json({ success: true, message: 'Usuario bloqueado' });
+  } catch (err) {
+    console.error('Error bloqueando usuario:', err);
+    next(err);
+  }
+}
+
 /**
 * Listar todos los roles
 */
@@ -285,8 +350,19 @@ async function createRole(req, res, next) {
     const newRole = await Role.create({
       atr_nombre_rol: name,
       atr_descripcion: description,
-      atr_estado_rol: status
+      atr_estado_rol: status,
+      atr_creado_por: req.user.atr_usuario
     });
+
+    // ———> Registro en bitácora
+    await BitacoraService.registrarEvento({
+      usuarioId:   req.user.atr_id_usuario,
+      objetoId:    OBJETO_ROLES,
+      accion:      'Create',
+      descripcion: `Creación de rol “${newRole.atr_nombre_rol}”`,
+      ip:          req.ip
+    });
+
     res.status(201).json(newRole);
   } catch (err) {
     console.error('Error creando rol:', err);
@@ -306,8 +382,19 @@ async function updateRole(req, res, next) {
     await role.update({
       atr_nombre_rol: name,
       atr_descripcion: description,
-      atr_estado_rol: status
+      atr_estado_rol: status,
+      atr_modificado_por: req.user.atr_usuario
     });
+
+    // ———> Registro en bitácora
+    await BitacoraService.registrarEvento({
+      usuarioId:   req.user.atr_id_usuario,
+      objetoId:    OBJETO_ROLES,
+      accion:      'Update',
+      descripcion: `Actualización de rol “${role.atr_nombre_rol}”`,
+      ip:          req.ip
+    });
+
     res.json(role);
   } catch (err) {
     console.error('Error actualizando rol:', err);
@@ -318,13 +405,32 @@ async function updateRole(req, res, next) {
 /**
 * Eliminar un rol
 */
+// Eliminar o inactivar un rol (borrado lógico + físico)
 async function deleteRole(req, res, next) {
   try {
     const { id } = req.params;
-    const deleted = await Role.destroy({ where: { atr_id_rol: id } });
-    if (!deleted) return res.status(404).json({ error: 'Rol no encontrado' });
-    res.json({ success: true, message: 'Rol eliminado' });
+    const role = await Role.findByPk(id);
+    if (!role) return res.status(404).json({ error: 'Rol no encontrado' });
+
+    // Si el rol está ACTIVO, solo lo inactiva (borrado lógico)
+    if (role.atr_estado_rol !== 'INACTIVO') {
+      await role.update({ atr_estado_rol: 'INACTIVO' });
+      return res.json({ success: true, logicalDelete: true, message: 'Rol inactivado correctamente' });
+    }
+
+    // Si el rol ya está INACTIVO, intenta borrado físico solo si no tiene permisos asociados
+    const Permiso = require('../models/permiso.model');
+    await Permiso.destroy({ where: { atr_id_rol: id } });
+
+    await Role.destroy({ where: { atr_id_rol: id } });
+
+    res.json({ success: true, logicalDelete: false, message: 'Rol eliminado físicamente' });
   } catch (err) {
+    if (err.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(400).json({
+        error: 'No se puede eliminar el rol porque tiene información relacionada (usuarios, permisos, etc.)'
+      });
+    }
     console.error('Error eliminando rol:', err);
     next(err);
   }
@@ -333,6 +439,8 @@ async function deleteRole(req, res, next) {
 module.exports = {
   listUsers,
   createUser,
+  updateUser,
+  deleteUser,
   blockUser,
   resetUserPassword,
   listLogs,

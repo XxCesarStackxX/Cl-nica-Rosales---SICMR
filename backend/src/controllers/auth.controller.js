@@ -130,26 +130,18 @@ exports.login = async (req, res) => {
     const LOCK_TIME = 30 * 60 * 1000;
 
     if (user.atr_estado_usuario !== 'ACTIVO') {
-      if (
-        user.atr_estado_usuario === 'BLOQUEADO' &&
-        user.atr_reset_expiry > new Date()
-      ) {
-        return res.status(403).json({
-          error: `Cuenta bloqueada hasta ${user.atr_reset_expiry.toLocaleString()}`
-        });
-      }
-      if (user.atr_estado_usuario === 'PENDIENTE_VERIFICACION') {
+      if (user.atr_id_rol === 1) {
+        // Los administradores sí pueden entrar aunque estén bloqueados
+        // Puedes aquí dejar lógica adicional si deseas registrar esto
+      } else if (user.atr_estado_usuario === 'BLOQUEADO') {
+        return res.status(403).json({ error: 'Usuario bloqueado. Contacte al administrador.' });
+      } else if (user.atr_estado_usuario === 'INACTIVO') {
+        return res.status(403).json({ error: 'Usuario inactivo. Contacte al administrador.' });
+      } else if (user.atr_estado_usuario === 'PENDIENTE_VERIFICACION') {
         return res.status(403).json({ error: 'Verifica tu email primero' });
-      }
-      if (user.atr_estado_usuario === 'PENDIENTE_APROBACION') {
+      } else if (user.atr_estado_usuario === 'PENDIENTE_APROBACION') {
         return res.status(403).json({ error: 'Cuenta pendiente de aprobación' });
       }
-
-      await user.update({
-        atr_estado_usuario: 'ACTIVO',
-        atr_intentos_fallidos: 0,
-        atr_reset_expiry: null
-      });
     }
 
     const match = await bcrypt.compare(password, user.atr_contrasena);
@@ -356,17 +348,48 @@ exports.resetPassword = async (req, res) => {
 };
 
 /**
- * Obtiene perfil del usuario autenticado.
+ * Obtiene perfil del usuario autenticado **junto con sus permisos**.
  */
 exports.getUserProfile = async (req, res) => {
   try {
     const user = req.user;
-    const safe = user.toJSON();
+    const safe = user.toJSON ? user.toJSON() : { ...user };
+
+    // Elimina datos sensibles
     delete safe.atr_contrasena;
     delete safe.atr_intentos_fallidos;
     delete safe.atr_reset_token;
     delete safe.atr_reset_expiry;
-    return res.json(safe);
+
+    // IMPORTANTE: Cargar permisos del rol
+    const Permiso = require('../models/permiso.model');
+    const Objeto = require('../models/object.model');
+
+    // Busca todos los permisos del rol del usuario
+    const permisos = await Permiso.findAll({
+      where: { atr_id_rol: user.atr_id_rol }
+    });
+
+    // Trae el nombre del objeto
+    const permisosWithObject = await Promise.all(permisos.map(async (permiso) => {
+      let obj = null;
+      try {
+        obj = await Objeto.findOne({ where: { atr_id_objetos: permiso.atr_id_objeto } });
+      } catch (e) {}
+      return {
+        objeto: obj ? obj.atr_objeto : String(permiso.atr_id_objeto),
+        insertar: permiso.atr_permiso_insercion,
+        eliminar: permiso.atr_permiso_eliminacion,
+        actualizar: permiso.atr_permiso_actualizacion,
+        consultar: permiso.atr_permiso_consultar
+      };
+    }));
+
+    // Devuelve el perfil y los permisos
+    return res.json({
+      ...safe,
+      permisos: permisosWithObject
+    });
   } catch (error) {
     console.error('Error en getUserProfile:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });

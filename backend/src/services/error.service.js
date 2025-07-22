@@ -1,37 +1,27 @@
-// helpers/errorHelper.js
-const { sequelize } = require('../Config/db');
+// backend/src/services/error.service.js
+const { sequelize } = require('../config/db');
 const fs = require('fs');
 const path = require('path');
 
-class ErrorHelper {
+class ErrorService {
     /**
      * Registra errores en archivo de log y base de datos
-     * @param {string} errorMessage - Mensaje de error descriptivo
-     * @param {Object} [errorDetails] - Detalles adicionales del error
-     * @param {string} [errorDetails.stack] - Stack trace del error
-     * @param {string} [errorDetails.endpoint] - Endpoint donde ocurrió
-     * @param {number} [errorDetails.userId] - ID de usuario relacionado
+     * @param {string} errorMessage - Mensaje descriptivo
+     * @param {Object} [errorDetails] - Detalles adicionales
      */
     static async logError(errorMessage, errorDetails = {}) {
         const timestamp = new Date().toISOString();
-        const logEntry = this._formatLogEntry(timestamp, errorMessage, errorDetails);
-        
+        const entry = ErrorService._formatLogEntry(timestamp, errorMessage, errorDetails);
         try {
-            // 1. Registrar en archivo de log
-            this._writeToFile(logEntry);
-            
-            // 2. Registrar en base de datos (si está configurado)
+            ErrorService._writeToFile(entry);
             if (process.env.LOG_ERRORS_TO_DB === 'true') {
-                await this._saveToDatabase(timestamp, errorMessage, errorDetails);
+                await ErrorService._saveToDatabase(timestamp, errorMessage, errorDetails);
             }
-            
-            // 3. Registrar en consola (solo en desarrollo)
             if (process.env.NODE_ENV === 'development') {
-                console.error(logEntry);
+                console.error(entry);
             }
         } catch (dbError) {
-            // Fallback solo a archivo si hay error con la base de datos
-            this._writeToFile(`[DB-ERROR] ${logEntry}`);
+            ErrorService._writeToFile(`[DB-ERROR] ${entry}`);
             console.error('Error al registrar error en BD:', dbError);
         }
     }
@@ -41,11 +31,11 @@ class ErrorHelper {
      * @private
      */
     static _formatLogEntry(timestamp, message, details) {
-        let entry = `[${timestamp}] ERROR: ${message}\n`;
-        if (details.stack) entry += `Stack: ${details.stack}\n`;
-        if (details.endpoint) entry += `Endpoint: ${details.endpoint}\n`;
-        if (details.userId) entry += `UserID: ${details.userId}\n`;
-        return entry;
+        let log = `[${timestamp}] ERROR: ${message}`;
+        if (details.stack)    log += `\nStack: ${details.stack}`;
+        if (details.endpoint) log += `\nEndpoint: ${details.endpoint}`;
+        if (details.userId)   log += `\nUserID: ${details.userId}`;
+        return log;
     }
 
     /**
@@ -54,15 +44,11 @@ class ErrorHelper {
      */
     static _writeToFile(content) {
         const logDir = path.join(__dirname, '../../logs');
-        const logFile = path.join(logDir, 'errors.log');
-        
-        // Crear directorio si no existe
         if (!fs.existsSync(logDir)) {
             fs.mkdirSync(logDir, { recursive: true });
         }
-        
-        // Escribir en archivo
-        fs.appendFileSync(logFile, `${content}\n`, { encoding: 'utf8' });
+        const logFile = path.join(logDir, 'errors.log');
+        fs.appendFileSync(logFile, content + '\n', 'utf8');
     }
 
     /**
@@ -104,15 +90,16 @@ class ErrorHelper {
 
     /**
      * Envía notificaciones de errores críticos
-     * @param {string} errorMessage 
+     * @param {string} errorMessage
      */
     static async notifyCriticalError(errorMessage) {
-        // Implementación básica - puede extenderse con Slack/Email/etc.
         if (process.env.NOTIFY_CRITICAL_ERRORS === 'true') {
             console.error(`[CRITICAL ERROR NOTIFICATION] ${errorMessage}`);
-            // Aquí iría la lógica para enviar a Slack, Email, etc.
         }
     }
 }
 
-module.exports = ErrorHelper;
+// Exportar sólo la función logError, ligada al contexto de la clase
+module.exports = {
+    logError: ErrorService.logError.bind(ErrorService)
+};

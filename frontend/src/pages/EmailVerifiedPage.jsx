@@ -32,7 +32,7 @@ function EmailVerifiedPage() {
           <>
             <CheckCircleIcon sx={{ fontSize: 60, color: '#4caf50', mb: 2 }} />
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#db7093' }}>
-              ✔ CARGANDO VISTA DE VERIFICACIÓN
+              ✔ CORREO VERIFICADO CON EXITO ✔
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
               Ya puedes iniciar sesión con tu cuenta.

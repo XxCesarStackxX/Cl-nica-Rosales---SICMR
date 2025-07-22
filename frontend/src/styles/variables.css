@@ -24,6 +24,15 @@
   --border-radius: 8px;
   --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   --transition: all 0.3s ease;
+  --rosa-pastel: #f7cac9;
+  --rosa-oscuro: #d4a5a5;
+  --rosa-alegre: #e999ba;
+  --rosa-intenso: #ff6b6b;
+  --lila: #c8a2c8;
+  --lila-oscuro: #9a6bb2;
+  --alerta: #dc3545;
+  --lila-claro: #e3c7f5;
+  --rosa-suave: #fc8181;
 }
 
 body {
